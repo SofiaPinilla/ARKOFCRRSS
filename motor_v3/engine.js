@@ -1,13 +1,18 @@
 // Motor de vídeo F7 — estilo vídeo de referencia futbol7_v4 (1080x1920)
 const W = 1080, H = 1920;
 const LIME = '#C6FB02', GOLD = '#FFD400', RED = '#E8322B', BLACK = '#0b0b0b';
-const FX0 = 112, FX1 = 930, FY0 = 432, FY1 = 1556, FW = FX1 - FX0, FH = FY1 - FY0, CX = (FX0 + FX1) / 2;
+let FX0 = 112, FX1 = 930, FY0 = 432, FY1 = 1556, FW = FX1 - FX0, FH = FY1 - FY0, CX = (FX0 + FX1) / 2;
+let FS = false;
 const PR = 37; // player radius
-const DEF = {
+const DEF7 = {
   y1: [0.5, 0.945], y2: [0.5, 0.80], y3: [0.166, 0.76], y4: [0.834, 0.76], y5: [0.33, 0.56], y6: [0.67, 0.56], y7: [0.5, 0.30],
   r1: [0.5, 0.055], r2: [0.5, 0.20], r3: [0.166, 0.24], r4: [0.834, 0.24], r5: [0.33, 0.44], r6: [0.67, 0.44], r7: [0.5, 0.70],
 };
-const IDS = Object.keys(DEF);
+const DEF5 = {
+  y1: [0.5, 0.945], y2: [0.5, 0.76], y3: [0.18, 0.60], y4: [0.82, 0.60], y5: [0.5, 0.36],
+  r1: [0.5, 0.055], r2: [0.5, 0.24], r3: [0.18, 0.40], r4: [0.82, 0.40], r5: [0.5, 0.64],
+};
+let DEF = DEF7, IDS = Object.keys(DEF);
 let cv, ctx, SPEC, TL, BG, FIELD, BAND_H, BAND_C;
 
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -35,7 +40,7 @@ function buildBG() {
   return c;
 }
 function drawGoal(g, top) {
-  const w = 138, h = 42, x = CX - w / 2, y = top ? FY0 - 56 : FY1 + 14;
+  const w = FS ? Math.round(FW * 0.15) : 138, h = 42, x = CX - w / 2, y = top ? FY0 - 56 : FY1 + 14;
   g.save(); g.shadowColor = 'rgba(0,0,0,0.45)'; g.shadowBlur = 10; g.shadowOffsetY = 4;
   rr(g, x, y, w, h, 7); g.fillStyle = '#fff'; g.fill(); g.restore();
   rr(g, x + 6, y + 6, w - 12, h - 12, 3); g.fillStyle = '#4a4a4a'; g.fill();
@@ -61,6 +66,44 @@ function buildField() {
   const bw = FW * 0.5, bd = FH * 0.158, sw = FW * 0.24, sd = FH * 0.062;
   g.strokeRect(CX - bw / 2, FY0 - 4, bw, bd + 4); g.strokeRect(CX - sw / 2, FY0 - 4, sw, sd + 4);
   g.strokeRect(CX - bw / 2, FY1 - bd, bw, bd + 4); g.strokeRect(CX - sw / 2, FY1 - sd, sw, sd + 4);
+  g.restore();
+  g.strokeStyle = '#fff'; g.lineWidth = 7; rr(g, FX0, FY0, FW, FH, 12); g.stroke();
+  drawGoal(g, true); drawGoal(g, false);
+  return c;
+}
+
+function buildCourt() {
+  const c = mk(W, H), g = c.getContext('2d');
+  g.save(); g.shadowColor = 'rgba(0,0,0,0.55)'; g.shadowBlur = 34; g.shadowOffsetY = 10;
+  rr(g, FX0 - 14, FY0 - 14, FW + 28, FH + 28, 22); g.fillStyle = '#0c2614'; g.fill(); g.restore();
+  g.save(); rr(g, FX0, FY0, FW, FH, 12); g.clip();
+  // sports floor: flat with long subtle boards and sheen
+  g.fillStyle = '#2F8F42'; g.fillRect(FX0, FY0, FW, FH);
+  const r = rng(13);
+  for (let x = FX0; x < FX1; x += 38) { g.fillStyle = r() < 0.5 ? 'rgba(0,0,0,0.035)' : 'rgba(255,255,255,0.025)'; g.fillRect(x, FY0, 38, FH); }
+  const sh = g.createLinearGradient(FX0, FY0, FX1, FY1); sh.addColorStop(0, 'rgba(255,255,255,0.10)'); sh.addColorStop(0.5, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(0,0,0,0.10)');
+  g.fillStyle = sh; g.fillRect(FX0, FY0, FW, FH);
+  for (let i = 0; i < 3500; i++) { g.fillStyle = r() < 0.5 ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)'; g.fillRect(FX0 + r() * FW, FY0 + r() * FH, 2, 2); }
+  // areas (D shape: 6 m quarter circles from each post, 20x40 court)
+  const ax = 0.30 * FW, ay = 0.15 * FH, pw = 0.075 * FW;
+  const area = (top) => {
+    const y = top ? FY0 : FY1, s = top ? 1 : -1;
+    g.beginPath();
+    g.moveTo(CX - pw - ax, y);
+    g.ellipse(CX - pw, y, ax, ay, 0, Math.PI, top ? Math.PI / 2 : Math.PI * 1.5, !top);
+    g.lineTo(CX + pw, y + s * ay);
+    g.ellipse(CX + pw, y, ax, ay, 0, top ? Math.PI / 2 : Math.PI * 1.5, 0, !top);
+    g.closePath();
+  };
+  g.fillStyle = '#3AA24F'; area(true); g.fill(); area(false); g.fill();
+  g.strokeStyle = '#fff'; g.lineWidth = 7; g.lineJoin = 'round';
+  area(true); g.stroke(); area(false); g.stroke();
+  g.beginPath(); g.moveTo(FX0, FY0 + FH / 2); g.lineTo(FX1, FY0 + FH / 2); g.stroke();
+  g.beginPath(); g.arc(CX, FY0 + FH / 2, 0.15 * FW, 0, Math.PI * 2); g.stroke();
+  g.fillStyle = '#fff';
+  for (const yy of [FY0 + FH / 2, FY0 + 0.15 * FH, FY1 - 0.15 * FH, FY0 + 0.25 * FH, FY1 - 0.25 * FH]) { g.beginPath(); g.arc(CX, yy, 8, 0, Math.PI * 2); g.fill(); }
+  // substitution zone ticks on the left touchline
+  for (const yy of [0.35, 0.45, 0.55, 0.65]) g.fillRect(FX0, FY0 + yy * FH - 3, 26, 6);
   g.restore();
   g.strokeStyle = '#fff'; g.lineWidth = 7; rr(g, FX0, FY0, FW, FH, 12); g.stroke();
   drawGoal(g, true); drawGoal(g, false);
@@ -361,8 +404,8 @@ function drawCTA(t, seg) {
   drawDimField(t, 1 + 0.012 * lt);
   const k1 = clamp((lt - tt[0]) / 0.18, 0, 1);
   if (k1 > 0) { ctx.save(); ctx.globalAlpha = clamp(k1 * 3, 0, 1); ctx.drawImage(BAND_C, 0, 0); ctx.restore(); }
-  const l1 = '¿QUIERES JUGAR F7', l2 = 'SIN TENER EQUIPO?';
-  if (k1 > 0) { const sc = lerp(1.3, 1, easeOut(k1)); ctx.save(); ctx.translate(530, 585); ctx.scale(sc, sc); anton(l1, 0, 0, 116, '#fff', 11); ctx.restore(); }
+  const l1 = FS ? '¿QUIERES JUGAR FÚTBOL SALA' : '¿QUIERES JUGAR F7', l2 = 'SIN TENER EQUIPO?';
+  if (k1 > 0) { const sc = lerp(1.3, 1, easeOut(k1)); ctx.save(); ctx.translate(530, 585); ctx.scale(sc, sc); anton(l1, 0, 0, fitFont(l1, 'Anton', 116, 960), '#fff', 11); ctx.restore(); }
   const k2 = clamp((lt - tt[1]) / 0.2, 0, 1);
   if (k2 > 0) { ctx.save(); ctx.globalAlpha = clamp(k2 * 2, 0, 1); anton(l2, 530 + (1 - easeOut(k2)) * 500, 745, 116, LIME, 11); ctx.restore(); }
   const k3 = clamp((lt - tt[2]) / 0.16, 0, 1);
@@ -402,8 +445,12 @@ function wipe(p) { // p 0..1
 // ---------- main ----------
 function init(spec, tl) {
   SPEC = spec; TL = tl;
+  FS = spec.sport === 'fs';
+  if (FS) { FX0 = 160; FX1 = 920; } else { FX0 = 112; FX1 = 930; }
+  FW = FX1 - FX0; FH = FY1 - FY0; CX = (FX0 + FX1) / 2;
+  DEF = FS ? DEF5 : DEF7; IDS = Object.keys(DEF);
   cv = document.getElementById('c'); ctx = cv.getContext('2d');
-  BG = buildBG(); FIELD = buildField();
+  BG = buildBG(); FIELD = FS ? buildCourt() : buildField();
   BAND_H = buildBand(3, 600, 1020); BAND_C = buildBand(5, 470, 1190);
   for (const s of SPEC.scenes) { s.ev.sort((a, b) => a.t - b.t); }
 }

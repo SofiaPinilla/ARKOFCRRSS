@@ -3,7 +3,7 @@ from playwright.sync_api import sync_playwright
 def open_page(p):
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--disable-gpu','--allow-file-access-from-files'])
     pg = b.new_page(viewport={'width': 1080, 'height': 1920})
-    pg.goto('file:///home/claude/eng/engine.html')
+    pg.goto('file://' + os.path.dirname(os.path.abspath(__file__)) + '/engine.html')
     pg.evaluate("document.fonts.load('100px Anton')"); pg.evaluate("document.fonts.load('italic 800 60px BarlowC')")
     pg.evaluate("document.fonts.ready.then(()=>1)")
     return b, pg

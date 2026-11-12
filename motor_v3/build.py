@@ -5,7 +5,7 @@ sys.path.insert(0, '/home/claude/eng')
 from render import video
 
 SR = 48000
-V = json.load(open('/home/claude/eng/specs.json'))
+V = json.load(open(os.environ.get('SPECS','/home/claude/eng/specs.json')))
 TAKES = '/home/claude/eng/takes'
 OUT = '/home/claude/eng/out'
 os.makedirs(OUT, exist_ok=True)
